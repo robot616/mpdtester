@@ -49,6 +49,31 @@
             .controls-container { flex-direction: column; }
             input[type="text"], select, button { width: 100%; }
         }
+
+        /* --------------------------------------------------- */
+        /* التعديلات البصرية لأيقونات JW Player */
+        /* --------------------------------------------------- */
+        
+        /* إخفاء أيقونة الشاشة الكاملة القديمة الافتراضية */
+        .jw-icon-fullscreen svg { display: none !important; }
+
+        /* أيقونة الشاشة الكاملة الجديدة */
+        .jw-icon-fullscreen {
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzSDVhMiAyIDAgMCAwLTIgMnYzbTE4IDBWNWEyIDIgMCAwIDAtMi0yaC0zbTAgMThoM2EyIDIgMCAwIDAgMi0ydi0zTTMgMTZ2M2EyIDIgMCAwIDAgMiAyaDMiLz48L3N2Zz4=');
+            background-size: 55%;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* أيقونة الخروج من الشاشة الكاملة */
+        .jw-flag-fullscreen .jw-icon-fullscreen {
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzdjNhMiAyIDAgMCAxLTIgMkgzbTE4IDBoLTNhMiAyIDAgMCAxLTUtMlYzbTAgMTh2LTNhMiAyIDAgMCAxIDItMmgzTTMgMTZoM2EyIDIgMCAwIDEgMiAydjMiLz48L3N2Zz4=');
+        }
+
+        /* إخفاء أيقونة "فيديوهات أكثر" (Playlist) والتالي الخاصة بـ JW Player */
+        .jw-icon-playlist, .jw-icon-next, .jw-related-btn { 
+            display: none !important; 
+        }
     </style>
 </head>
 <body>
@@ -98,7 +123,7 @@
 
             if (playerType === 'jw') {
                 // ==========================================
-                // إعداد JW Player
+                // إعداد JW Player مع مميزاتنا
                 // ==========================================
                 container.innerHTML = '<div id="jw-player"></div>';
                 
@@ -117,7 +142,28 @@
                     };
                 }
 
-                jwplayer("jw-player").setup(setupConfig);
+                const playerInstance = jwplayer("jw-player").setup(setupConfig);
+
+                // إضافة زر التوسيع المحدث بالأيقونة الجديدة
+                playerInstance.on('ready', function() {
+                    let isStretched = false;
+                    const diagonalCutArrow = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTQgMTBsNy03bS02IDBoNnY2bS0xMSA1bC03IDdtNiAwSDN2LTYiLz48L3N2Zz4=";
+
+                    playerInstance.addButton(
+                        diagonalCutArrow, 
+                        "توسيع/تضييق الصورة", 
+                        function() {
+                            if (!isStretched) {
+                                playerInstance.setConfig({ stretching: "exactfit" }); 
+                                isStretched = true;
+                            } else {
+                                playerInstance.setConfig({ stretching: "uniform" });
+                                isStretched = false;
+                            }
+                        },
+                        "stretch-button"
+                    );
+                });
 
             } else if (playerType === 'shaka') {
                 // ==========================================
