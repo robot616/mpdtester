@@ -8,16 +8,16 @@
     <!-- مكتبة JW Player -->
     <script src="https://content.jwplatform.com/libraries/SAHhwvZq.js"></script>
     
-    <!-- مكتبات Shaka Player -->
+    <!-- مكتبات Shaka Player والـ UI الخاص به -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.1/shaka-player.ui.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.1/controls.min.css">
 
     <style>
-        /* إصلاح مشكلة قص الشاشة: السماح بالتمرير لضمان ظهور شريط التحكم */
+        /* إزالة القيود الصارمة على الشاشة للسماح بظهور البلاير كاملاً */
         body {
             margin: 0; padding: 0; background: #0f0f0f; color: #fff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh; display: flex; flex-direction: column;
+            min-height: 100vh;
         }
         .header {
             background: #181818; padding: 15px; border-bottom: 2px solid #1dcf60;
@@ -44,7 +44,7 @@
             border-radius: 6px; font-size: 14px; outline: none; flex: 1; min-width: 180px;
         }
         input[type="text"]:focus, select:focus { border-color: #1dcf60; }
-
+        
         .buttons-group {
             display: flex; gap: 10px; width: 100%; max-width: 1000px;
         }
@@ -59,13 +59,15 @@
         }
         button.clear-btn:hover { background: #cc0000; }
 
+        /* حاوية المشغل: استخدام 16:9 للحفاظ على الأبعاد الحقيقية وعدم قص شريط التحكم */
         .player-wrapper {
-            flex: 1; min-height: 500px; position: relative; background: #000; width: 100%; max-width: 1200px;
-            margin: 20px auto; border-radius: 8px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            width: 95%; max-width: 1000px; aspect-ratio: 16 / 9;
+            margin: 20px auto; background: #000; border-radius: 8px; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.8); position: relative;
         }
-        #video-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
-        .shaka-video { width: 100%; height: 100%; }
         
+        #video-container { width: 100%; height: 100%; }
+
         /* --------------------------------------------------- */
         /* التعديلات البصرية لأيقونات JW Player */
         /* --------------------------------------------------- */
@@ -77,8 +79,6 @@
         .jw-flag-fullscreen .jw-icon-fullscreen {
             background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzdjNhMiAyIDAgMCAxLTIgMkgzbTE4IDBoLTNhMiAyIDAgMCAxLTUtMlYzbTAgMTh2LTNhMiAyIDAgMCAxIDItMmgzTTMgMTZoM2EyIDIgMCAwIDEgMiAydjMiLz48L3N2Zz4=');
         }
-        
-        /* إخفاء أيقونة الفيديوهات الأكثر */
         .jw-icon-playlist, .jw-icon-next, .jw-related-btn { display: none !important; }
 
         @media (max-width: 768px) {
@@ -96,7 +96,7 @@
     <div class="controls-container">
         <!-- قسم الاستخراج التلقائي -->
         <div class="auto-extract-box">
-            <input type="text" id="autoInput" placeholder="الصق الرابط مع الشفرة هنا لأي قناة (الاستخراج تلقائي) ⚡" oninput="extractData()">
+            <input type="text" id="autoInput" placeholder="الصق الرابط أو كود القناة بالكامل هنا (الاستخراج تلقائي) ⚡" oninput="extractData()">
         </div>
 
         <!-- الإدخال اليدوي وخيارات البلاير -->
@@ -122,28 +122,29 @@
 
     <script>
         let currentShakaPlayer = null;
-        let currentJwPlayer = null;
 
-        // دالة الاستخراج التلقائي للروابط والمفاتيح
+        // دالة الاستخراج التلقائي (مُحسنة جداً)
         function extractData() {
             const rawText = document.getElementById('autoInput').value.trim();
             if (!rawText) return;
 
-            // استخراج الرابط (يتوقف عند مسافة أو علامة التعجب ! اللي بتفصل الرابط عن الشفرة)
+            // 1. استخراج الرابط (ينتهي بمسافة أو ' أو " أو !)
             const urlMatch = rawText.match(/https?:\/\/[^\s!|"'<>]+/);
             if (urlMatch) {
                 document.getElementById('streamUrl').value = urlMatch[0];
             }
 
-            // استخراج المفاتيح
-            const keyMatch = rawText.match(/([a-fA-F0-9]{32})\s*:\s*([a-fA-F0-9]{32})/);
-            if (keyMatch) {
-                document.getElementById('keyId').value = keyMatch[1];
-                document.getElementById('keyVal').value = keyMatch[2];
+            // 2. استخراج المفاتيح: الخوارزمية هنا بتبحث عن أي "32 حرف إنجليزي وأرقام" بالظبط
+            // كده هتصطاد المفتاحين سواء كان بينهم فاصلة، أو JSON، أو !! 
+            const hexMatches = rawText.match(/\b([a-fA-F0-9]{32})\b/g);
+            if (hexMatches && hexMatches.length >= 2) {
+                // الكود الأول بيتحط في k1 والتاني في k2
+                document.getElementById('keyId').value = hexMatches[0];
+                document.getElementById('keyVal').value = hexMatches[1];
             }
         }
 
-        // مسح كل الخانات
+        // مسح الخانات والمشغل
         function clearAll() {
             document.getElementById('autoInput').value = '';
             document.getElementById('streamUrl').value = '';
@@ -158,7 +159,7 @@
             }
         }
 
-        // تشغيل القناة
+        // دالة تشغيل القناة
         function testStream() {
             const url = document.getElementById('streamUrl').value.trim();
             const k1 = document.getElementById('keyId').value.trim();
@@ -171,7 +172,7 @@
                 return;
             }
 
-            // تنظيف الحاوية
+            // تنظيف أي مشغل سابق
             container.innerHTML = '';
             if (currentShakaPlayer) {
                 currentShakaPlayer.destroy();
@@ -196,22 +197,22 @@
                     };
                 }
 
-                currentJwPlayer = jwplayer("jw-player").setup(setupConfig);
+                const playerInstance = jwplayer("jw-player").setup(setupConfig);
 
-                // زر التوسيع المخصص
-                currentJwPlayer.on('ready', function() {
+                // إضافة أيقونة التوسيع
+                playerInstance.on('ready', function() {
                     let isStretched = false;
                     const diagonalCutArrow = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTQgMTBsNy03bS02IDBoNnY2bS0xMSA1bC03IDdtNiAwSDN2LTYiLz48L3N2Zz4=";
 
-                    currentJwPlayer.addButton(
+                    playerInstance.addButton(
                         diagonalCutArrow, 
                         "توسيع/تضييق الصورة", 
                         function() {
                             if (!isStretched) {
-                                currentJwPlayer.setConfig({ stretching: "exactfit" }); 
+                                playerInstance.setConfig({ stretching: "exactfit" }); 
                                 isStretched = true;
                             } else {
-                                currentJwPlayer.setConfig({ stretching: "uniform" });
+                                playerInstance.setConfig({ stretching: "uniform" });
                                 isStretched = false;
                             }
                         },
@@ -220,11 +221,19 @@
                 });
 
             } else if (playerType === 'shaka') {
-                container.innerHTML = '<video id="shaka-video" class="shaka-video" controls autoplay></video>';
+                // إعداد الحاوية المخصصة المطلوبة لواجهة Shaka الأصلية
+                container.innerHTML = `
+                    <div id="shaka-ui-container" style="width: 100%; height: 100%; position: relative;">
+                        <video id="shaka-video" style="width: 100%; height: 100%;" autoplay></video>
+                    </div>
+                `;
+                
                 const videoElement = document.getElementById('shaka-video');
+                const shakaContainer = document.getElementById('shaka-ui-container');
                 
                 currentShakaPlayer = new shaka.Player(videoElement);
-                const ui = new shaka.ui.Overlay(currentShakaPlayer, container, videoElement);
+                // ربط الواجهة بالحاوية الجديدة ليظهر شريط التحكم بشكل مثالي
+                const ui = new shaka.ui.Overlay(currentShakaPlayer, shakaContainer, videoElement);
 
                 if (k1 && k2) {
                     currentShakaPlayer.configure({
@@ -243,7 +252,7 @@
             }
         }
 
-        // تثبيت شاكا بلاير
+        // تثبيت إضافات Shaka Player
         document.addEventListener('DOMContentLoaded', () => {
             shaka.polyfill.installAll();
         });
