@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أداة فحص قنوات MPD</title>
+    
+    <!-- مكتبة JW Player -->
+    <script src="https://content.jwplatform.com/libraries/SAHhwvZq.js"></script>
+    
+    <!-- مكتبات Shaka Player -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.1/shaka-player.ui.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.1/controls.min.css">
+
+    <style>
+        body {
+            margin: 0; padding: 0; background: #0f0f0f; color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+        }
+        .header {
+            background: #181818; padding: 20px; border-bottom: 2px solid #1dcf60;
+            text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 24px; color: #1dcf60; }
+        .controls-container {
+            padding: 20px; background: #222; display: flex; flex-wrap: wrap; gap: 15px;
+            justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        input[type="text"], select {
+            padding: 12px; background: #111; border: 1px solid #444; color: #fff;
+            border-radius: 6px; font-size: 14px; outline: none; min-width: 250px; flex: 1;
+        }
+        input[type="text"]:focus, select:focus { border-color: #1dcf60; }
+        button {
+            padding: 12px 25px; background: #1dcf60; color: #000; border: none;
+            border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        button:hover { background: #17a84e; transform: scale(1.05); }
+        .player-wrapper {
+            flex: 1; position: relative; background: #000; width: 100%; max-width: 1200px;
+            margin: 20px auto; border-radius: 8px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        /* لاحتواء مشغل Shaka أو JW */
+        #video-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        .shaka-video { width: 100%; height: 100%; }
+        
+        @media (max-width: 768px) {
+            .controls-container { flex-direction: column; }
+            input[type="text"], select, button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>أداة فحص وبث قنوات MPD المشفّرة</h1>
+    </div>
+
+    <div class="controls-container">
+        <input type="text" id="streamUrl" placeholder="رابط القناة (MPD URL)">
+        <input type="text" id="keyId" placeholder="Key ID (k1)">
+        <input type="text" id="keyVal" placeholder="Key (k2)">
+        <select id="playerType">
+            <option value="jw">JW Player (المفضل)</option>
+            <option value="shaka">Shaka Player</option>
+        </select>
+        <button onclick="testStream()">تشغيل القناة ▶</button>
+    </div>
+
+    <div class="player-wrapper">
+        <div id="video-container">
+            <!-- سيتم حقن المشغل هنا -->
+        </div>
+    </div>
+
+    <script>
+        let currentShakaPlayer = null;
+
+        function testStream() {
+            const url = document.getElementById('streamUrl').value.trim();
+            const k1 = document.getElementById('keyId').value.trim();
+            const k2 = document.getElementById('keyVal').value.trim();
+            const playerType = document.getElementById('playerType').value;
+            const container = document.getElementById('video-container');
+
+            if (!url) {
+                alert("يرجى إدخال رابط القناة (MPD URL) أولاً!");
+                return;
+            }
+
+            // تنظيف الحاوية من أي مشغل سابق
+            container.innerHTML = '';
+            if (currentShakaPlayer) {
+                currentShakaPlayer.destroy();
+                currentShakaPlayer = null;
+            }
+
+            if (playerType === 'jw') {
+                // ==========================================
+                // إعداد JW Player
+                // ==========================================
+                container.innerHTML = '<div id="jw-player"></div>';
+                
+                let setupConfig = {
+                    file: url,
+                    type: url.indexOf('.m3u8') !== -1 ? 'hls' : 'dash',
+                    width: "100%",
+                    height: "100%",
+                    autostart: true,
+                    stretching: "uniform"
+                };
+
+                if (k1 && k2) {
+                    setupConfig.drm = {
+                        clearkey: { keyId: k1, key: k2 }
+                    };
+                }
+
+                jwplayer("jw-player").setup(setupConfig);
+
+            } else if (playerType === 'shaka') {
+                // ==========================================
+                // إعداد Shaka Player
+                // ==========================================
+                container.innerHTML = '<video id="shaka-video" class="shaka-video" controls autoplay></video>';
+                const videoElement = document.getElementById('shaka-video');
+                
+                currentShakaPlayer = new shaka.Player(videoElement);
+                const ui = new shaka.ui.Overlay(currentShakaPlayer, container, videoElement);
+
+                // إعداد التشفير لشاكا بلاير
+                if (k1 && k2) {
+                    currentShakaPlayer.configure({
+                        drm: {
+                            clearKeys: {
+                                [k1]: k2
+                            }
+                        }
+                    });
+                }
+
+                // تحميل الرابط
+                currentShakaPlayer.load(url).then(function() {
+                    console.log('The video has now been loaded successfully!');
+                }).catch(function(error) {
+                    console.error('Error loading video', error);
+                    alert("حدث خطأ أثناء تحميل القناة، تأكد من الرابط والمفاتيح.");
+                });
+            }
+        }
+
+        // تثبيت مكتبات شاكا بولي فيلز لتجنب الأخطاء في بعض المتصفحات
+        document.addEventListener('DOMContentLoaded', () => {
+            shaka.polyfill.installAll();
+            if (!shaka.Player.isBrowserSupported()) {
+                console.error('Browser not supported for Shaka Player!');
+            }
+        });
+    </script>
+
+</body>
+</html>
