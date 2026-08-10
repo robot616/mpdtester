@@ -24,83 +24,133 @@
         }
         .header h1 { margin: 0; font-size: 24px; color: #1dcf60; }
         .controls-container {
-            padding: 20px; background: #222; display: flex; flex-wrap: wrap; gap: 15px;
-            justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            padding: 20px; background: #222; display: flex; flex-direction: column; gap: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); align-items: center;
+        }
+        .auto-extract-box {
+            width: 100%; max-width: 900px; display: flex; gap: 10px;
+        }
+        .auto-extract-box input {
+            flex: 1; padding: 12px; background: #1a2a20; border: 1px dashed #1dcf60; color: #fff;
+            border-radius: 6px; font-size: 14px; outline: none;
+        }
+        .auto-extract-box input::placeholder { color: #88c79c; }
+        
+        .manual-inputs {
+            display: flex; flex-wrap: wrap; gap: 10px; width: 100%; max-width: 900px;
         }
         input[type="text"], select {
             padding: 12px; background: #111; border: 1px solid #444; color: #fff;
-            border-radius: 6px; font-size: 14px; outline: none; min-width: 250px; flex: 1;
+            border-radius: 6px; font-size: 14px; outline: none; flex: 1; min-width: 200px;
         }
         input[type="text"]:focus, select:focus { border-color: #1dcf60; }
-        button {
-            padding: 12px 25px; background: #1dcf60; color: #000; border: none;
+        
+        .buttons-group {
+            display: flex; gap: 10px; width: 100%; max-width: 900px;
+        }
+        button.play-btn {
+            padding: 12px 25px; background: #1dcf60; color: #000; border: none; flex: 3;
             border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s;
         }
-        button:hover { background: #17a84e; transform: scale(1.05); }
+        button.play-btn:hover { background: #17a84e; }
+        button.clear-btn {
+            padding: 12px 25px; background: #ff4d4d; color: #fff; border: none; flex: 1;
+            border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        button.clear-btn:hover { background: #cc0000; }
+
         .player-wrapper {
             flex: 1; position: relative; background: #000; width: 100%; max-width: 1200px;
             margin: 20px auto; border-radius: 8px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
-        /* لاحتواء مشغل Shaka أو JW */
         #video-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         .shaka-video { width: 100%; height: 100%; }
         
-        @media (max-width: 768px) {
-            .controls-container { flex-direction: column; }
-            input[type="text"], select, button { width: 100%; }
-        }
-
         /* --------------------------------------------------- */
         /* التعديلات البصرية لأيقونات JW Player */
         /* --------------------------------------------------- */
-        
-        /* إخفاء أيقونة الشاشة الكاملة القديمة الافتراضية */
         .jw-icon-fullscreen svg { display: none !important; }
-
-        /* أيقونة الشاشة الكاملة الجديدة */
         .jw-icon-fullscreen {
             background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzSDVhMiAyIDAgMCAwLTIgMnYzbTE4IDBWNWEyIDIgMCAwIDAtMi0yaC0zbTAgMThoM2EyIDIgMCAwIDAgMi0ydi0zTTMgMTZ2M2EyIDIgMCAwIDAgMiAyaDMiLz48L3N2Zz4=');
-            background-size: 55%;
-            background-position: center;
-            background-repeat: no-repeat;
+            background-size: 55%; background-position: center; background-repeat: no-repeat;
         }
-
-        /* أيقونة الخروج من الشاشة الكاملة */
         .jw-flag-fullscreen .jw-icon-fullscreen {
             background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzdjNhMiAyIDAgMCAxLTIgMkgzbTE4IDBoLTNhMiAyIDAgMCAxLTUtMlYzbTAgMTh2LTNhMiAyIDAgMCAxIDItMmgzTTMgMTZoM2EyIDIgMCAwIDEgMiAydjMiLz48L3N2Zz4=');
         }
-
-        /* إخفاء أيقونة "فيديوهات أكثر" (Playlist) والتالي الخاصة بـ JW Player */
-        .jw-icon-playlist, .jw-icon-next, .jw-related-btn { 
-            display: none !important; 
-        }
+        .jw-icon-playlist, .jw-icon-next, .jw-related-btn { display: none !important; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>أداة فحص وبث قنوات MPD المشفّرة</h1>
+        <h1>أداة فحص وتجربة القنوات المشفّرة</h1>
     </div>
 
     <div class="controls-container">
-        <input type="text" id="streamUrl" placeholder="رابط القناة (MPD URL)">
-        <input type="text" id="keyId" placeholder="Key ID (k1)">
-        <input type="text" id="keyVal" placeholder="Key (k2)">
-        <select id="playerType">
-            <option value="jw">JW Player (المفضل)</option>
-            <option value="shaka">Shaka Player</option>
-        </select>
-        <button onclick="testStream()">تشغيل القناة ▶</button>
+        <!-- قسم الاستخراج التلقائي -->
+        <div class="auto-extract-box">
+            <input type="text" id="autoInput" placeholder="الصق الرابط مع الشفرة هنا لأي قناة (الاستخراج تلقائي) ⚡" oninput="extractData()">
+        </div>
+
+        <!-- الإدخال اليدوي أو ما بعد الاستخراج -->
+        <div class="manual-inputs">
+            <input type="text" id="streamUrl" placeholder="رابط القناة (URL)">
+            <input type="text" id="keyId" placeholder="Key ID (k1)">
+            <input type="text" id="keyVal" placeholder="Key (k2)">
+            <select id="playerType">
+                <option value="jw">JW Player (المفضل)</option>
+                <option value="shaka">Shaka Player</option>
+            </select>
+        </div>
+
+        <div class="buttons-group">
+            <button class="play-btn" onclick="testStream()">تشغيل القناة ▶</button>
+            <button class="clear-btn" onclick="clearAll()">مسح الكل 🗑️</button>
+        </div>
     </div>
 
     <div class="player-wrapper">
         <div id="video-container">
-            <!-- سيتم حقن المشغل هنا -->
+            <!-- المشغل هيتحط هنا -->
         </div>
     </div>
 
     <script>
         let currentShakaPlayer = null;
+
+        // دالة الاستخراج التلقائي للروابط والمفاتيح
+        function extractData() {
+            const rawText = document.getElementById('autoInput').value.trim();
+            if (!rawText) return;
+
+            // 1. استخراج الرابط (ينتهي عند المسافة أو علامة ! أو |)
+            const urlMatch = rawText.match(/https?:\/\/[^\s!|"'<>]+/);
+            if (urlMatch) {
+                document.getElementById('streamUrl').value = urlMatch[0];
+            }
+
+            // 2. استخراج المفاتيح (32 حرف هيكس : 32 حرف هيكس)
+            const keyMatch = rawText.match(/([a-fA-F0-9]{32})\s*:\s*([a-fA-F0-9]{32})/);
+            if (keyMatch) {
+                document.getElementById('keyId').value = keyMatch[1];
+                document.getElementById('keyVal').value = keyMatch[2];
+            }
+        }
+
+        // دالة مسح كل الخانات
+        function clearAll() {
+            document.getElementById('autoInput').value = '';
+            document.getElementById('streamUrl').value = '';
+            document.getElementById('keyId').value = '';
+            document.getElementById('keyVal').value = '';
+            
+            const container = document.getElementById('video-container');
+            container.innerHTML = '';
+            if (currentShakaPlayer) {
+                currentShakaPlayer.destroy();
+                currentShakaPlayer = null;
+            }
+        }
 
         function testStream() {
             const url = document.getElementById('streamUrl').value.trim();
@@ -110,11 +160,11 @@
             const container = document.getElementById('video-container');
 
             if (!url) {
-                alert("يرجى إدخال رابط القناة (MPD URL) أولاً!");
+                alert("يرجى إدخال رابط القناة أولاً!");
                 return;
             }
 
-            // تنظيف الحاوية من أي مشغل سابق
+            // تنظيف أي مشغل شغال حالياً
             container.innerHTML = '';
             if (currentShakaPlayer) {
                 currentShakaPlayer.destroy();
@@ -122,14 +172,11 @@
             }
 
             if (playerType === 'jw') {
-                // ==========================================
-                // إعداد JW Player مع مميزاتنا
-                // ==========================================
                 container.innerHTML = '<div id="jw-player"></div>';
                 
                 let setupConfig = {
                     file: url,
-                    type: url.indexOf('.m3u8') !== -1 ? 'hls' : 'dash',
+                    type: url.indexOf('.m3u8') !== -1 || url.indexOf('.ts') !== -1 ? 'hls' : 'dash',
                     width: "100%",
                     height: "100%",
                     autostart: true,
@@ -144,7 +191,6 @@
 
                 const playerInstance = jwplayer("jw-player").setup(setupConfig);
 
-                // إضافة زر التوسيع المحدث بالأيقونة الجديدة
                 playerInstance.on('ready', function() {
                     let isStretched = false;
                     const diagonalCutArrow = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTQgMTBsNy03bS02IDBoNnY2bS0xMSA1bC03IDdtNiAwSDN2LTYiLz48L3N2Zz4=";
@@ -166,16 +212,12 @@
                 });
 
             } else if (playerType === 'shaka') {
-                // ==========================================
-                // إعداد Shaka Player
-                // ==========================================
                 container.innerHTML = '<video id="shaka-video" class="shaka-video" controls autoplay></video>';
                 const videoElement = document.getElementById('shaka-video');
                 
                 currentShakaPlayer = new shaka.Player(videoElement);
                 const ui = new shaka.ui.Overlay(currentShakaPlayer, container, videoElement);
 
-                // إعداد التشفير لشاكا بلاير
                 if (k1 && k2) {
                     currentShakaPlayer.configure({
                         drm: {
@@ -186,22 +228,16 @@
                     });
                 }
 
-                // تحميل الرابط
-                currentShakaPlayer.load(url).then(function() {
-                    console.log('The video has now been loaded successfully!');
-                }).catch(function(error) {
+                currentShakaPlayer.load(url).catch(function(error) {
                     console.error('Error loading video', error);
                     alert("حدث خطأ أثناء تحميل القناة، تأكد من الرابط والمفاتيح.");
                 });
             }
         }
 
-        // تثبيت مكتبات شاكا بولي فيلز لتجنب الأخطاء في بعض المتصفحات
+        // تثبيت مكتبات شاكا بولي فيلز
         document.addEventListener('DOMContentLoaded', () => {
             shaka.polyfill.installAll();
-            if (!shaka.Player.isBrowserSupported()) {
-                console.error('Browser not supported for Shaka Player!');
-            }
         });
     </script>
 
