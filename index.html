@@ -135,7 +135,6 @@
             }
 
             // 2. استخراج المفاتيح: الخوارزمية هنا بتبحث عن أي "32 حرف إنجليزي وأرقام" بالظبط
-            // كده هتصطاد المفتاحين سواء كان بينهم فاصلة، أو JSON، أو !! 
             const hexMatches = rawText.match(/\b([a-fA-F0-9]{32})\b/g);
             if (hexMatches && hexMatches.length >= 2) {
                 // الكود الأول بيتحط في k1 والتاني في k2
@@ -221,9 +220,9 @@
                 });
 
             } else if (playerType === 'shaka') {
-                // إعداد الحاوية المخصصة المطلوبة لواجهة Shaka الأصلية
+                // إعداد الحاوية المخصصة وإجبارها على الاتجاه من اليسار لليمين (LTR) لضبط شريط التحكم
                 container.innerHTML = `
-                    <div id="shaka-ui-container" style="width: 100%; height: 100%; position: relative;">
+                    <div id="shaka-ui-container" dir="ltr" style="width: 100%; height: 100%; position: relative;">
                         <video id="shaka-video" style="width: 100%; height: 100%;" autoplay></video>
                     </div>
                 `;
