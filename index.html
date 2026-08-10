@@ -13,55 +13,59 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.1/controls.min.css">
 
     <style>
+        /* إخفاء شريط التمرير وضبط الأبعاد لتملأ الشاشة بالضبط */
         body {
             margin: 0; padding: 0; background: #0f0f0f; color: #fff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex; flex-direction: column; height: 100vh;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
         }
+        
+        /* تقليل مساحة الرأس */
         .header {
-            background: #181818; padding: 20px; border-bottom: 2px solid #1dcf60;
-            text-align: center;
+            background: #181818; padding: 10px; border-bottom: 2px solid #1dcf60;
+            text-align: center; flex-shrink: 0;
         }
-        .header h1 { margin: 0; font-size: 24px; color: #1dcf60; }
+        .header h1 { margin: 0; font-size: 20px; color: #1dcf60; }
+        
+        /* ضغط شريط التحكم عشان نسيب مساحة أكبر للبلاير */
         .controls-container {
-            padding: 20px; background: #222; display: flex; flex-direction: column; gap: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5); align-items: center;
+            padding: 15px; background: #222; display: flex; flex-direction: column; gap: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); align-items: center; flex-shrink: 0;
         }
-        .auto-extract-box {
-            width: 100%; max-width: 900px; display: flex; gap: 10px;
-        }
+        .auto-extract-box { width: 100%; max-width: 1000px; display: flex; gap: 10px; }
         .auto-extract-box input {
-            flex: 1; padding: 12px; background: #1a2a20; border: 1px dashed #1dcf60; color: #fff;
+            flex: 1; padding: 10px; background: #1a2a20; border: 1px dashed #1dcf60; color: #fff;
             border-radius: 6px; font-size: 14px; outline: none;
         }
         .auto-extract-box input::placeholder { color: #88c79c; }
         
         .manual-inputs {
-            display: flex; flex-wrap: wrap; gap: 10px; width: 100%; max-width: 900px;
+            display: flex; flex-wrap: wrap; gap: 10px; width: 100%; max-width: 1000px;
         }
         input[type="text"], select {
-            padding: 12px; background: #111; border: 1px solid #444; color: #fff;
-            border-radius: 6px; font-size: 14px; outline: none; flex: 1; min-width: 200px;
+            padding: 10px; background: #111; border: 1px solid #444; color: #fff;
+            border-radius: 6px; font-size: 14px; outline: none; flex: 1; min-width: 180px;
         }
         input[type="text"]:focus, select:focus { border-color: #1dcf60; }
         
         .buttons-group {
-            display: flex; gap: 10px; width: 100%; max-width: 900px;
+            display: flex; gap: 10px; width: 100%; max-width: 1000px;
         }
         button.play-btn {
-            padding: 12px 25px; background: #1dcf60; color: #000; border: none; flex: 3;
+            padding: 10px 25px; background: #1dcf60; color: #000; border: none; flex: 3;
             border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s;
         }
         button.play-btn:hover { background: #17a84e; }
         button.clear-btn {
-            padding: 12px 25px; background: #ff4d4d; color: #fff; border: none; flex: 1;
+            padding: 10px 25px; background: #ff4d4d; color: #fff; border: none; flex: 1;
             border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s;
         }
         button.clear-btn:hover { background: #cc0000; }
 
+        /* جعل البلاير يأخذ المساحة المتبقية بالكامل */
         .player-wrapper {
-            flex: 1; position: relative; background: #000; width: 100%; max-width: 1200px;
-            margin: 20px auto; border-radius: 8px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            flex: 1; /* يأخذ باقي طول الشاشة (100vh) */
+            position: relative; background: #000; width: 100%;
         }
         #video-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         .shaka-video { width: 100%; height: 100%; }
@@ -78,6 +82,11 @@
             background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzdjNhMiAyIDAgMCAxLTIgMkgzbTE4IDBoLTNhMiAyIDAgMCAxLTUtMlYzbTAgMTh2LTNhMiAyIDAgMCAxIDItMmgzTTMgMTZoM2EyIDIgMCAwIDEgMiAydjMiLz48L3N2Zz4=');
         }
         .jw-icon-playlist, .jw-icon-next, .jw-related-btn { display: none !important; }
+
+        @media (max-width: 768px) {
+            .manual-inputs, .buttons-group { flex-direction: column; }
+            input[type="text"], select, button { width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -118,18 +127,18 @@
     <script>
         let currentShakaPlayer = null;
 
-        // دالة الاستخراج التلقائي للروابط والمفاتيح
+        // دالة الاستخراج التلقائي
         function extractData() {
             const rawText = document.getElementById('autoInput').value.trim();
             if (!rawText) return;
 
-            // 1. استخراج الرابط (ينتهي عند المسافة أو علامة ! أو |)
+            // استخراج الرابط
             const urlMatch = rawText.match(/https?:\/\/[^\s!|"'<>]+/);
             if (urlMatch) {
                 document.getElementById('streamUrl').value = urlMatch[0];
             }
 
-            // 2. استخراج المفاتيح (32 حرف هيكس : 32 حرف هيكس)
+            // استخراج المفاتيح
             const keyMatch = rawText.match(/([a-fA-F0-9]{32})\s*:\s*([a-fA-F0-9]{32})/);
             if (keyMatch) {
                 document.getElementById('keyId').value = keyMatch[1];
@@ -137,7 +146,7 @@
             }
         }
 
-        // دالة مسح كل الخانات
+        // مسح الخانات
         function clearAll() {
             document.getElementById('autoInput').value = '';
             document.getElementById('streamUrl').value = '';
@@ -164,7 +173,7 @@
                 return;
             }
 
-            // تنظيف أي مشغل شغال حالياً
+            // تنظيف أي مشغل سابق
             container.innerHTML = '';
             if (currentShakaPlayer) {
                 currentShakaPlayer.destroy();
@@ -235,7 +244,7 @@
             }
         }
 
-        // تثبيت مكتبات شاكا بولي فيلز
+        // تثبيت شاكا بلاير
         document.addEventListener('DOMContentLoaded', () => {
             shaka.polyfill.installAll();
         });
