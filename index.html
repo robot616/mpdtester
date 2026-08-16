@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>أداة فحص قنوات MPD</title>
+    <title>أداة فحص وبلايليست قنوات MPD / M3U8</title>
     
     <!-- مكتبة JW Player -->
     <script src="https://content.jwplatform.com/libraries/SAHhwvZq.js"></script>
@@ -13,7 +13,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.1/controls.min.css">
 
     <style>
-        /* إزالة القيود الصارمة على الشاشة للسماح بظهور البلاير كاملاً */
         body {
             margin: 0; padding: 0; background: #0f0f0f; color: #fff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -29,12 +28,18 @@
             padding: 20px; background: #222; display: flex; flex-direction: column; gap: 15px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5); align-items: center;
         }
-        .auto-extract-box { width: 100%; max-width: 1000px; display: flex; gap: 10px; }
-        .auto-extract-box input {
-            flex: 1; padding: 12px; background: #1a2a20; border: 1px dashed #1dcf60; color: #fff;
-            border-radius: 6px; font-size: 14px; outline: none;
+        .auto-extract-box { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 10px; }
+        .auto-extract-box textarea {
+            width: 100%; height: 120px; padding: 12px; background: #1a2a20; border: 1px dashed #1dcf60; color: #fff;
+            border-radius: 6px; font-size: 14px; outline: none; resize: vertical; box-sizing: border-box;
         }
-        .auto-extract-box input::placeholder { color: #88c79c; }
+        .auto-extract-box textarea::placeholder { color: #88c79c; }
+
+        .extract-action-btn {
+            padding: 12px; background: #0084ff; color: #fff; border: none; font-weight: bold;
+            border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 15px;
+        }
+        .extract-action-btn:hover { background: #006bd6; }
         
         .manual-inputs {
             display: flex; flex-wrap: wrap; gap: 10px; width: 100%; max-width: 1000px; align-items: center;
@@ -59,18 +64,33 @@
         }
         button.clear-btn:hover { background: #cc0000; }
 
-        /* حاوية المشغل: استخدام 16:9 للحفاظ على الأبعاد الحقيقية وعدم قص شريط التحكم */
+        /* حاوية العرض الرئيسية (المشغل + قائمة البلايليست الجانبية) */
+        .main-content {
+            display: flex; flex-direction: row; gap: 20px; width: 95%; max-width: 1000px;
+            margin: 20px auto; align-items: flex-start;
+        }
+
         .player-wrapper {
-            width: 95%; max-width: 1000px; aspect-ratio: 16 / 9;
-            margin: 20px auto; background: #000; border-radius: 8px; 
-            box-shadow: 0 0 20px rgba(0,0,0,0.8); position: relative;
+            flex: 3; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.8); position: relative; min-width: 0;
         }
         
         #video-container { width: 100%; height: 100%; }
 
-        /* --------------------------------------------------- */
+        /* صندوق البلايليست المستخرجة */
+        .playlist-box {
+            flex: 1.2; background: #181818; border: 1px solid #333; border-radius: 8px;
+            max-height: 400px; overflow-y: auto; padding: 10px; box-sizing: border-box;
+        }
+        .playlist-box h3 { margin: 0 0 10px 0; font-size: 14px; color: #1dcf60; border-bottom: 1px solid #333; padding-bottom: 5px; text-align: center; }
+        .playlist-item {
+            padding: 8px 10px; background: #222; margin-bottom: 6px; border-radius: 4px;
+            cursor: pointer; font-size: 13px; transition: 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .playlist-item:hover { background: #2a2a2a; border-right: 3px solid #1dcf60; }
+        .playlist-item.active { background: #1a3a24; border-right: 3px solid #1dcf60; color: #88c79c; font-weight: bold; }
+
         /* التعديلات البصرية لأيقونات JW Player */
-        /* --------------------------------------------------- */
         .jw-icon-fullscreen svg { display: none !important; }
         .jw-icon-fullscreen {
             background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzSDVhMiAyIDAgMCAwLTIgMnYzbTE4IDBWNWEyIDIgMCAwIDAtMi0yaC0zbTAgMThoM2EyIDIgMCAwIDAgMi0ydi0zTTMgMTZ2M2EyIDIgMCAwIDAgMiAyaDMiLz48L3N2Zz4=');
@@ -82,6 +102,8 @@
         .jw-icon-playlist, .jw-icon-next, .jw-related-btn { display: none !important; }
 
         @media (max-width: 768px) {
+            .main-content { flex-direction: column; }
+            .player-wrapper, .playlist-box { width: 100%; flex: none; }
             .manual-inputs, .buttons-group { flex-direction: column; }
             input[type="text"], select, button { width: 100%; }
         }
@@ -90,16 +112,15 @@
 <body>
 
     <div class="header">
-        <h1>أداة فحص وتجربة القنوات المشفّرة</h1>
+        <h1>أداة فحص وتشغيل بلايليست القنوات الذكية ⚡</h1>
     </div>
 
     <div class="controls-container">
-        <!-- قسم الاستخراج التلقائي -->
         <div class="auto-extract-box">
-            <input type="text" id="autoInput" placeholder="الصق الرابط أو كود القناة بالكامل هنا (الاستخراج تلقائي) ⚡" oninput="extractData()">
+            <textarea id="autoInput" placeholder="الصق محتوى الملف بالكامل هنا (يحتوي على قنوات متعددة وروابط وشفرات) ثم اضغط زر الاستخراج..."></textarea>
+            <button class="extract-action-btn" onclick="extractPlaylist()">استخراج وفصل القنوات تلقائياً 🔄</button>
         </div>
 
-        <!-- الإدخال اليدوي وخيارات البلاير -->
         <div class="manual-inputs">
             <input type="text" id="streamUrl" placeholder="رابط القناة (URL)">
             <input type="text" id="keyId" placeholder="Key ID (k1)">
@@ -111,44 +132,131 @@
         </div>
 
         <div class="buttons-group">
-            <button class="play-btn" onclick="testStream()">تشغيل القناة ▶</button>
+            <button class="play-btn" onclick="testStream()">تشغيل القناة المحددة ▶</button>
             <button class="clear-btn" onclick="clearAll()">مسح الكل 🗑️</button>
         </div>
     </div>
 
-    <div class="player-wrapper">
-        <div id="video-container"></div>
+    <div class="main-content">
+        <div class="player-wrapper">
+            <div id="video-container"></div>
+        </div>
+        <div class="playlist-box" id="playlistContainer">
+            <h3>قائمة القنوات المستخرجة (0)</h3>
+            <div style="color: #777; text-align: center; font-size: 12px; margin-top: 20px;">لم يتم استخراج قنوات بعد</div>
+        </div>
     </div>
 
     <script>
         let currentShakaPlayer = null;
+        let extractedChannels = [];
 
-        // دالة الاستخراج التلقائي (مُحسنة جداً)
-        function extractData() {
-            const rawText = document.getElementById('autoInput').value.trim();
-            if (!rawText) return;
-
-            // 1. استخراج الرابط (ينتهي بمسافة أو ' أو " أو !)
-            const urlMatch = rawText.match(/https?:\/\/[^\s!|"'<>]+/);
-            if (urlMatch) {
-                document.getElementById('streamUrl').value = urlMatch[0];
+        function extractPlaylist() {
+            const rawText = document.getElementById('autoInput').value;
+            if (!rawText.trim()) {
+                alert("يرجى لصق النص أو الملف أولاً!");
+                return;
             }
 
-            // 2. استخراج المفاتيح: الخوارزمية هنا بتبحث عن أي "32 حرف إنجليزي وأرقام" بالظبط
-            const hexMatches = rawText.match(/\b([a-fA-F0-9]{32})\b/g);
-            if (hexMatches && hexMatches.length >= 2) {
-                // الكود الأول بيتحط في k1 والتاني في k2
-                document.getElementById('keyId').value = hexMatches[0];
-                document.getElementById('keyVal').value = hexMatches[1];
+            extractedChannels = [];
+            const lines = rawText.split(/\r?\n/);
+            
+            let pendingName = "";
+            let pendingK1 = "";
+            let pendingK2 = "";
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (!line) continue;
+
+                // 1. استخراج الاسم
+                if (line.toUpperCase().startsWith('#EXTINF')) {
+                    let commaIdx = line.lastIndexOf(',');
+                    if (commaIdx !== -1) {
+                        pendingName = line.substring(commaIdx + 1).trim();
+                    }
+                }
+
+                // 2. استخراج المفاتيح
+                let keyMatch = line.match(/([a-fA-F0-9]{32})[:=]([a-fA-F0-9]{32})/);
+                if (keyMatch) {
+                    pendingK1 = keyMatch[1];
+                    pendingK2 = keyMatch[2];
+                }
+
+                // 3. استخراج الرابط (مع تجاهل الروابط اللي جوة وسوم الصور والـ XML)
+                let cleanLine = line.replace(/="[^"]+"/g, ''); // يشيل أي حاجة بين علامتين تنصيص زي اللوجوهات
+                let urlMatch = cleanLine.match(/https?:\/\/[^\s|<]+/);
+                
+                if (urlMatch) {
+                    let url = urlMatch[0];
+                    // استبعاد روابط الجايد والصور
+                    if (!url.endsWith('.xml') && !url.endsWith('.png') && !url.endsWith('.jpg')) {
+                        
+                        // تطبيق القاعدة: لو الرابط m3u8 بنمسح الشفرة وناخد الرابط والاسم بس
+                        if (url.includes('.m3u8') || url.includes('.ts')) {
+                            pendingK1 = "";
+                            pendingK2 = "";
+                        }
+
+                        extractedChannels.push({
+                            name: pendingName || `قناة ${extractedChannels.length + 1}`,
+                            url: url,
+                            k1: pendingK1,
+                            k2: pendingK2
+                        });
+                        
+                        // تصفير الذاكرة للقناة اللي بعدها عشان البيانات متدخلش في بعض
+                        pendingName = "";
+                        pendingK1 = "";
+                        pendingK2 = "";
+                    }
+                }
+            }
+
+            renderPlaylistUI();
+        }
+
+        function renderPlaylistUI() {
+            const container = document.getElementById('playlistContainer');
+            if (extractedChannels.length === 0) {
+                container.innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3><div style="color: #ff4d4d; text-align: center; font-size: 12px; margin-top: 20px;">لم يتم العثور على روابط صالحة!</div>`;
+                return;
+            }
+
+            let html = `<h3>قائمة القنوات المستخرجة (${extractedChannels.length})</h3>`;
+            extractedChannels.forEach((ch, idx) => {
+                html += `<div class="playlist-item" onclick="selectChannel(${idx})" id="ch-item-${idx}" title="${ch.name}">${idx + 1}. ${ch.name}</div>`;
+            });
+            container.innerHTML = html;
+
+            // تشغيل أول قناة تلقائياً بعد الاستخراج
+            if (extractedChannels.length > 0) {
+                selectChannel(0);
             }
         }
 
-        // مسح الخانات والمشغل
+        function selectChannel(idx) {
+            const ch = extractedChannels[idx];
+            document.getElementById('streamUrl').value = ch.url;
+            document.getElementById('keyId').value = ch.k1;
+            document.getElementById('keyVal').value = ch.k2;
+
+            document.querySelectorAll('.playlist-item').forEach((el, i) => {
+                if(i === idx) el.classList.add('active');
+                else el.classList.remove('active');
+            });
+
+            testStream();
+        }
+
         function clearAll() {
             document.getElementById('autoInput').value = '';
             document.getElementById('streamUrl').value = '';
             document.getElementById('keyId').value = '';
             document.getElementById('keyVal').value = '';
+            extractedChannels = [];
+            document.getElementById('playlistContainer').innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3><div style="color: #777; text-align: center; font-size: 12px; margin-top: 20px;">تم التطهير بنجاح</div>`;
             
             const container = document.getElementById('video-container');
             container.innerHTML = '';
@@ -158,7 +266,6 @@
             }
         }
 
-        // دالة تشغيل القناة
         function testStream() {
             const url = document.getElementById('streamUrl').value.trim();
             const k1 = document.getElementById('keyId').value.trim();
@@ -167,11 +274,10 @@
             const container = document.getElementById('video-container');
 
             if (!url) {
-                alert("يرجى إدخال رابط القناة أولاً!");
+                alert("يرجى إدخال أو اختيار رابط قناة صالح أولاً!");
                 return;
             }
 
-            // تنظيف أي مشغل سابق
             container.innerHTML = '';
             if (currentShakaPlayer) {
                 currentShakaPlayer.destroy();
@@ -198,7 +304,6 @@
 
                 const playerInstance = jwplayer("jw-player").setup(setupConfig);
 
-                // إضافة أيقونة التوسيع
                 playerInstance.on('ready', function() {
                     let isStretched = false;
                     const diagonalCutArrow = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTQgMTBsNy03bS02IDBoNnY2bS0xMSA1bC03IDdtNiAwSDN2LTYiLz48L3N2Zz4=";
@@ -220,7 +325,6 @@
                 });
 
             } else if (playerType === 'shaka') {
-                // إعداد الحاوية المخصصة وإجبارها على الاتجاه من اليسار لليمين (LTR) لضبط شريط التحكم
                 container.innerHTML = `
                     <div id="shaka-ui-container" dir="ltr" style="width: 100%; height: 100%; position: relative;">
                         <video id="shaka-video" style="width: 100%; height: 100%;" autoplay></video>
@@ -231,7 +335,6 @@
                 const shakaContainer = document.getElementById('shaka-ui-container');
                 
                 currentShakaPlayer = new shaka.Player(videoElement);
-                // ربط الواجهة بالحاوية الجديدة ليظهر شريط التحكم بشكل مثالي
                 const ui = new shaka.ui.Overlay(currentShakaPlayer, shakaContainer, videoElement);
 
                 if (k1 && k2) {
@@ -246,16 +349,14 @@
 
                 currentShakaPlayer.load(url).catch(function(error) {
                     console.error('Error loading video', error);
-                    alert("حدث خطأ أثناء تحميل القناة، تأكد من الرابط والمفاتيح.");
+                    alert("حدث خطأ أثناء تحميل البث، تأكد من صحة الرابط ومفاتيح فك التشفير.");
                 });
             }
         }
 
-        // تثبيت إضافات Shaka Player
         document.addEventListener('DOMContentLoaded', () => {
             shaka.polyfill.installAll();
         });
     </script>
-
 </body>
 </html>
