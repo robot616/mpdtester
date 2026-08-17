@@ -161,17 +161,16 @@
             extractedChannels = [];
             const lines = rawText.split(/\r?\n/);
             
-            // الذاكرة المؤقتة لتجميع بيانات القناة الواحدة
+            // الذاكرة المؤقتة
             let pendingName = "";
             let pendingUrl = "";
             let pendingK1 = "";
             let pendingK2 = "";
 
-            // دالة داخلية لحفظ القناة المكتملة وتصفير الذاكرة
             function saveCurrentChannel() {
                 if (pendingUrl) {
-                    // تفريغ الشفرات لو الرابط مش MPD
-                    if (pendingUrl.includes('.m3u8') || pendingUrl.includes('.ts')) {
+                    // مسح الشفرات لو الرابط مش MPD
+                    if (pendingUrl.includes('.m3u8') || pendingUrl.includes('.ts') || pendingUrl.includes('.m3u')) {
                         pendingK1 = "";
                         pendingK2 = "";
                     }
@@ -193,9 +192,9 @@
                 let line = lines[i].trim();
                 if (!line) continue;
 
-                // 1. التقاط الاسم من صيغة M3U (#EXTINF)
+                // 1. التقاط الاسم (M3U أو JSON)
                 if (line.toUpperCase().startsWith('#EXTINF')) {
-                    saveCurrentChannel(); // لو فيه قناة قديمة لسه متسجلتش، احفظها الأول
+                    saveCurrentChannel(); 
                     let commaIdx = line.lastIndexOf(',');
                     if (commaIdx !== -1) {
                         pendingName = line.substring(commaIdx + 1).trim();
@@ -203,55 +202,60 @@
                     continue;
                 }
 
-                // 1.5 التقاط الاسم من صيغة JSON (title: "..." أو name: "...")
-                let titleMatch = line.match(/(?:title|name)\s*:\s*["']([^"']+)["']/i);
+                let titleMatch = line.match(/"?(?:title|name)"?\s*:\s*["']([^"']+)["']/i);
                 if (titleMatch) {
                     if (pendingUrl) saveCurrentChannel();
                     pendingName = titleMatch[1];
                 }
 
-                // 2. التقاط الشفرات (حتى لو كل واحدة في سطر)
+                // 2. التقاط الشفرات بدعم JSON وكلمات (kid, key, k1, k2, keyId)
                 let combinedKeyMatch = line.match(/([a-fA-F0-9]{32})[:=]([a-fA-F0-9]{32})/);
                 if (combinedKeyMatch) {
                     pendingK1 = combinedKeyMatch[1];
                     pendingK2 = combinedKeyMatch[2];
                 } else {
-                    let keyIdMatch = line.match(/keyId\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
+                    let keyIdMatch = line.match(/"?(?:keyId|kid|k1)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
                     if (keyIdMatch) pendingK1 = keyIdMatch[1];
 
-                    let keyValMatch = line.match(/key\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
+                    let keyValMatch = line.match(/"?(?:key|k2)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
                     if (keyValMatch) pendingK2 = keyValMatch[1];
                 }
 
-                // 3. التقاط الرابط
-                let cleanLine = line.replace(/="[^"]+"/g, ''); // نتجاهل الروابط اللي جوة خصائص الصور
-                let urlMatch = cleanLine.match(/https?:\/\/[^\s|<"']+/); // تجاهل علامات التنصيص بتاعت الجافاسكريبت
+                // 3. التقاط رابط البث (مع فلترة ذكية للـ Duplicate URLs في نفس البلوك)
+                let cleanLine = line.replace(/="[^"]+"/g, '');
+                let urlMatch = cleanLine.match(/https?:\/\/[^\s|<"']+/);
                 
                 if (urlMatch) {
                     let url = urlMatch[0];
-                    if (!url.endsWith('.xml') && !url.endsWith('.png') && !url.endsWith('.jpg') && !url.endsWith('.ico')) {
-                        if (pendingUrl) {
-                            // لو لقينا رابط جديد ولسه محفظناش القديم (معناه إننا دخلنا في بلوك قناة جديدة)
-                            saveCurrentChannel();
+                    let urlLower = url.toLowerCase();
+                    
+                    if (urlLower.includes('.mpd') || urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u')) {
+                        if (pendingUrl && pendingUrl !== url) {
+                            // لو فيه رابط جديد ولقطنا الشفرات أو مفيش اسم، احفظ القناة وابدأ جديدة
+                            if (pendingK1 || pendingK2 || !pendingName) {
+                                saveCurrentChannel();
+                                pendingUrl = url;
+                            }
+                        } else if (!pendingUrl) {
+                            pendingUrl = url;
                         }
-                        pendingUrl = url;
                     }
                 }
             }
             
-            // حفظ آخر بلوك لو فضل في الذاكرة
             saveCurrentChannel();
 
-            // فحص أخير للطوارئ لو الملف عبارة عن روابط عشوائية مفصولة تماماً بدون تنسيق
+            // فحص الطوارئ للروابط العشوائية تماماً
             if (extractedChannels.length === 0) {
                 const globalUrls = rawText.match(/https?:\/\/[^\s|<"']+/g);
                 const globalKeys = rawText.match(/\b([a-fA-F0-9]{32})\b/g);
                 if (globalUrls) {
                     let keyIndex = 0;
-                    globalUrls.forEach((u, index) => {
-                        if (!u.endsWith('.xml') && !u.endsWith('.png') && !u.endsWith('.jpg')) {
+                    globalUrls.forEach((u) => {
+                        let urlLower = u.toLowerCase();
+                        if (urlLower.includes('.mpd') || urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u')) {
                             extractedChannels.push({
-                                name: `قناة مستخرجة ${index + 1}`,
+                                name: `قناة مستخرجة ${extractedChannels.length + 1}`,
                                 url: u,
                                 k1: globalKeys && globalKeys[keyIndex] ? globalKeys[keyIndex] : '',
                                 k2: globalKeys && globalKeys[keyIndex + 1] ? globalKeys[keyIndex + 1] : ''
@@ -268,7 +272,7 @@
         function renderPlaylistUI() {
             const container = document.getElementById('playlistContainer');
             if (extractedChannels.length === 0) {
-                container.innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3><div style="color: #ff4d4d; text-align: center; font-size: 12px; margin-top: 20px;">لم يتم العثور على روابط صالحة!</div>`;
+                container.innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3><div style="color: #ff4d4d; text-align: center; font-size: 12px; margin-top: 20px;">لم يتم العثور على روابط بث صالحة!</div>`;
                 return;
             }
 
@@ -278,7 +282,6 @@
             });
             container.innerHTML = html;
 
-            // تشغيل أول قناة تلقائياً بعد الاستخراج
             if (extractedChannels.length > 0) {
                 selectChannel(0);
             }
