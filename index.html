@@ -64,7 +64,6 @@
         }
         button.clear-btn:hover { background: #cc0000; }
 
-        /* حاوية العرض الرئيسية */
         .main-content {
             display: flex; flex-direction: row; gap: 20px; width: 95%; max-width: 1000px;
             margin: 20px auto; align-items: flex-start;
@@ -77,7 +76,6 @@
         
         #video-container { width: 100%; height: 100%; }
 
-        /* صندوق البلايليست المستخرجة */
         .playlist-box {
             flex: 1.2; background: #181818; border: 1px solid #333; border-radius: 8px;
             max-height: 400px; overflow-y: auto; padding: 10px; box-sizing: border-box;
@@ -90,7 +88,6 @@
         .playlist-item:hover { background: #2a2a2a; border-right: 3px solid #1dcf60; }
         .playlist-item.active { background: #1a3a24; border-right: 3px solid #1dcf60; color: #88c79c; font-weight: bold; }
 
-        /* التعديلات البصرية لأيقونات JW Player */
         .jw-icon-fullscreen svg { display: none !important; }
         .jw-icon-fullscreen {
             background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzSDVhMiAyIDAgMCAwLTIgMnYzbTE4IDBWNWEyIDIgMCAwIDAtMi0yaC0zbTAgMThoM2EyIDIgMCAwIDAgMi0ydi0zTTMgMTZ2M2EyIDIgMCAwIDAgMiAyaDMiLz48L3N2Zz4=');
@@ -117,7 +114,7 @@
 
     <div class="controls-container">
         <div class="auto-extract-box">
-            <textarea id="autoInput" placeholder="الصق محتوى الملف بالكامل هنا (يحتوي على قنوات متعددة وروابط وشفرات) ثم اضغط زر الاستخراج..."></textarea>
+            <textarea id="autoInput" placeholder="الصق محتوى الملف بالكامل هنا..."></textarea>
             <button class="extract-action-btn" onclick="extractPlaylist()">استخراج وفصل القنوات تلقائياً 🔄</button>
         </div>
 
@@ -161,40 +158,51 @@
             extractedChannels = [];
             const lines = rawText.split(/\r?\n/);
             
-            // الذاكرة المؤقتة
+            // الذاكرة المؤقتة للفقرة الحالية
             let pendingName = "";
-            let pendingUrl = "";
+            let pendingUrls = [];
             let pendingK1 = "";
             let pendingK2 = "";
 
-            function saveCurrentChannel() {
-                if (pendingUrl) {
-                    // مسح الشفرات لو الرابط مش MPD
-                    if (pendingUrl.includes('.m3u8') || pendingUrl.includes('.ts') || pendingUrl.includes('.m3u')) {
-                        pendingK1 = "";
-                        pendingK2 = "";
-                    }
-                    extractedChannels.push({
-                        name: pendingName || `قناة ${extractedChannels.length + 1}`,
-                        url: pendingUrl,
-                        k1: pendingK1,
-                        k2: pendingK2
+            function saveCurrentBlock() {
+                if (pendingUrls.length > 0) {
+                    pendingUrls.forEach((url, index) => {
+                        let urlLower = url.toLowerCase();
+                        // تحديد ما إذا كان الرابط M3U8 ليتم استثناء الشفرة
+                        let isM3u8 = urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u');
+                        
+                        let finalK1 = isM3u8 ? "" : pendingK1;
+                        let finalK2 = isM3u8 ? "" : pendingK2;
+                        
+                        let displayName = pendingName || `قناة مستخرجة ${extractedChannels.length + 1}`;
+                        // تمييز الروابط المتعددة لنفس القناة
+                        if (pendingUrls.length > 1) {
+                            displayName += ` (رابط ${index + 1})`;
+                        }
+
+                        extractedChannels.push({
+                            name: displayName,
+                            url: url,
+                            k1: finalK1,
+                            k2: finalK2
+                        });
                     });
-                    // تصفير الذاكرة
-                    pendingName = "";
-                    pendingUrl = "";
-                    pendingK1 = "";
-                    pendingK2 = "";
                 }
+                
+                // تصفير الذاكرة بعد حفظ الفقرة
+                pendingName = "";
+                pendingUrls = [];
+                pendingK1 = "";
+                pendingK2 = "";
             }
 
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i].trim();
                 if (!line) continue;
 
-                // 1. التقاط الاسم (M3U أو JSON)
+                // 1. التقاط بداية فقرة جديدة (اسم القناة)
                 if (line.toUpperCase().startsWith('#EXTINF')) {
-                    saveCurrentChannel(); 
+                    saveCurrentBlock(); // حفظ الفقرة السابقة إن وجدت
                     let commaIdx = line.lastIndexOf(',');
                     if (commaIdx !== -1) {
                         pendingName = line.substring(commaIdx + 1).trim();
@@ -202,13 +210,14 @@
                     continue;
                 }
 
+                // دعم استخراج الاسم لو كان الملف بصيغة JSON
                 let titleMatch = line.match(/"?(?:title|name)"?\s*:\s*["']([^"']+)["']/i);
                 if (titleMatch) {
-                    if (pendingUrl) saveCurrentChannel();
+                    saveCurrentBlock();
                     pendingName = titleMatch[1];
                 }
 
-                // 2. التقاط الشفرات بدعم JSON وكلمات (kid, key, k1, k2, keyId)
+                // 2. التقاط الشفرات
                 let combinedKeyMatch = line.match(/([a-fA-F0-9]{32})[:=]([a-fA-F0-9]{32})/);
                 if (combinedKeyMatch) {
                     pendingK1 = combinedKeyMatch[1];
@@ -221,8 +230,8 @@
                     if (keyValMatch) pendingK2 = keyValMatch[1];
                 }
 
-                // 3. التقاط رابط البث (مع فلترة ذكية للـ Duplicate URLs في نفس البلوك)
-                let cleanLine = line.replace(/="[^"]+"/g, '');
+                // 3. التقاط الروابط (يدعم سحب الروابط حتى لو مسبوقة بـ #)
+                let cleanLine = line.replace(/="[^"]+"/g, ''); 
                 let urlMatch = cleanLine.match(/https?:\/\/[^\s|<"']+/);
                 
                 if (urlMatch) {
@@ -230,22 +239,18 @@
                     let urlLower = url.toLowerCase();
                     
                     if (urlLower.includes('.mpd') || urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u')) {
-                        if (pendingUrl && pendingUrl !== url) {
-                            // لو فيه رابط جديد ولقطنا الشفرات أو مفيش اسم، احفظ القناة وابدأ جديدة
-                            if (pendingK1 || pendingK2 || !pendingName) {
-                                saveCurrentChannel();
-                                pendingUrl = url;
-                            }
-                        } else if (!pendingUrl) {
-                            pendingUrl = url;
+                        // تفادي الروابط المكررة بالنص داخل نفس الفقرة
+                        if (!pendingUrls.includes(url)) {
+                            pendingUrls.push(url);
                         }
                     }
                 }
             }
             
-            saveCurrentChannel();
+            // حفظ الفقرة الأخيرة
+            saveCurrentBlock();
 
-            // فحص الطوارئ للروابط العشوائية تماماً
+            // فحص الطوارئ للروابط العشوائية لو لم يتم التقاط شيء
             if (extractedChannels.length === 0) {
                 const globalUrls = rawText.match(/https?:\/\/[^\s|<"']+/g);
                 const globalKeys = rawText.match(/\b([a-fA-F0-9]{32})\b/g);
@@ -254,13 +259,14 @@
                     globalUrls.forEach((u) => {
                         let urlLower = u.toLowerCase();
                         if (urlLower.includes('.mpd') || urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u')) {
+                            let isM3u8Fallback = urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u');
                             extractedChannels.push({
                                 name: `قناة مستخرجة ${extractedChannels.length + 1}`,
                                 url: u,
-                                k1: globalKeys && globalKeys[keyIndex] ? globalKeys[keyIndex] : '',
-                                k2: globalKeys && globalKeys[keyIndex + 1] ? globalKeys[keyIndex + 1] : ''
+                                k1: isM3u8Fallback ? "" : (globalKeys && globalKeys[keyIndex] ? globalKeys[keyIndex] : ''),
+                                k2: isM3u8Fallback ? "" : (globalKeys && globalKeys[keyIndex + 1] ? globalKeys[keyIndex + 1] : '')
                             });
-                            keyIndex += 2;
+                            if(!isM3u8Fallback && globalKeys) keyIndex += 2;
                         }
                     });
                 }
