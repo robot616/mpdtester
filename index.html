@@ -165,17 +165,16 @@
             let pendingK2 = "";
 
             function saveCurrentBlock() {
+                // مش هنفرمت الذاكرة غير لو فعلاً جمعنا روابط للقناة
                 if (pendingUrls.length > 0) {
                     pendingUrls.forEach((url, index) => {
                         let urlLower = url.toLowerCase();
-                        // تحديد ما إذا كان الرابط M3U8 ليتم استثناء الشفرة
                         let isM3u8 = urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u');
                         
                         let finalK1 = isM3u8 ? "" : pendingK1;
                         let finalK2 = isM3u8 ? "" : pendingK2;
                         
                         let displayName = pendingName || `قناة مستخرجة ${extractedChannels.length + 1}`;
-                        // تمييز الروابط المتعددة لنفس القناة
                         if (pendingUrls.length > 1) {
                             displayName += ` (رابط ${index + 1})`;
                         }
@@ -187,59 +186,62 @@
                             k2: finalK2
                         });
                     });
+                    
+                    // تصفير الذاكرة هنا بس عشان نبدأ قناة جديدة على نظافة
+                    pendingName = "";
+                    pendingUrls = [];
+                    pendingK1 = "";
+                    pendingK2 = "";
                 }
-                
-                // تصفير الذاكرة بعد حفظ الفقرة
-                pendingName = "";
-                pendingUrls = [];
-                pendingK1 = "";
-                pendingK2 = "";
             }
 
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i].trim();
                 if (!line) continue;
 
-                // 1. التقاط بداية فقرة جديدة (اسم القناة)
-                if (line.toUpperCase().startsWith('#EXTINF')) {
-                    saveCurrentBlock(); // حفظ الفقرة السابقة إن وجدت
+                // التقاط الروابط حتى لو كان قدامها #
+                let cleanLine = line.replace(/="[^"]+"/g, ''); 
+                let urlMatch = cleanLine.match(/https?:\/\/[^\s|<"']+/);
+                
+                // البحث عن البيانات الدليلية
+                let isExtInf = line.toUpperCase().startsWith('#EXTINF');
+                let isKodiProp = line.toUpperCase().startsWith('#KODIPROP');
+                let titleMatch = line.match(/"?(?:title|name)"?\s*:\s*["']([^"']+)["']/i);
+                let combinedKeyMatch = line.match(/([a-fA-F0-9]{32})[:=]([a-fA-F0-9]{32})/);
+                let keyIdMatch = line.match(/"?(?:keyId|kid|k1)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
+                let keyValMatch = line.match(/"?(?:key|k2)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
+                
+                let hasMetadata = isExtInf || isKodiProp || titleMatch || combinedKeyMatch || keyIdMatch || keyValMatch;
+
+                // التريكة هنا: لو لقينا أي داتا لقناة جديدة (شفرة أو اسم) وكنا مجمعين روابط قبل كده.. نقفل القناة السابقة ونحفظها
+                if (hasMetadata && pendingUrls.length > 0) {
+                    saveCurrentBlock();
+                }
+
+                // 1. استخراج الاسم
+                if (isExtInf) {
                     let commaIdx = line.lastIndexOf(',');
                     if (commaIdx !== -1) {
                         pendingName = line.substring(commaIdx + 1).trim();
                     }
-                    continue;
-                }
-
-                // دعم استخراج الاسم لو كان الملف بصيغة JSON
-                let titleMatch = line.match(/"?(?:title|name)"?\s*:\s*["']([^"']+)["']/i);
-                if (titleMatch) {
-                    saveCurrentBlock();
+                } else if (titleMatch) {
                     pendingName = titleMatch[1];
                 }
 
-                // 2. التقاط الشفرات
-                let combinedKeyMatch = line.match(/([a-fA-F0-9]{32})[:=]([a-fA-F0-9]{32})/);
+                // 2. استخراج الشفرات
                 if (combinedKeyMatch) {
                     pendingK1 = combinedKeyMatch[1];
                     pendingK2 = combinedKeyMatch[2];
                 } else {
-                    let keyIdMatch = line.match(/"?(?:keyId|kid|k1)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
                     if (keyIdMatch) pendingK1 = keyIdMatch[1];
-
-                    let keyValMatch = line.match(/"?(?:key|k2)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
                     if (keyValMatch) pendingK2 = keyValMatch[1];
                 }
 
-                // 3. التقاط الروابط (يدعم سحب الروابط حتى لو مسبوقة بـ #)
-                let cleanLine = line.replace(/="[^"]+"/g, ''); 
-                let urlMatch = cleanLine.match(/https?:\/\/[^\s|<"']+/);
-                
+                // 3. استخراج الروابط وتخزينها في المصفوفة
                 if (urlMatch) {
                     let url = urlMatch[0];
                     let urlLower = url.toLowerCase();
-                    
                     if (urlLower.includes('.mpd') || urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u')) {
-                        // تفادي الروابط المكررة بالنص داخل نفس الفقرة
                         if (!pendingUrls.includes(url)) {
                             pendingUrls.push(url);
                         }
@@ -247,7 +249,7 @@
                 }
             }
             
-            // حفظ الفقرة الأخيرة
+            // حفظ آخر فقرة في الملف
             saveCurrentBlock();
 
             // فحص الطوارئ للروابط العشوائية لو لم يتم التقاط شيء
