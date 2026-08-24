@@ -164,8 +164,8 @@
             let pendingK1 = "";
             let pendingK2 = "";
 
+            // دالة حفظ القناة (مبتتفرمتش غير لما نحفظ فعلاً)
             function saveCurrentBlock() {
-                // مش هنفرمت الذاكرة غير لو فعلاً جمعنا روابط للقناة
                 if (pendingUrls.length > 0) {
                     pendingUrls.forEach((url, index) => {
                         let urlLower = url.toLowerCase();
@@ -187,7 +187,7 @@
                         });
                     });
                     
-                    // تصفير الذاكرة هنا بس عشان نبدأ قناة جديدة على نظافة
+                    // تصفير الذاكرة بعد ما نخلص حفظ القناة دي تماماً
                     pendingName = "";
                     pendingUrls = [];
                     pendingK1 = "";
@@ -199,26 +199,28 @@
                 let line = lines[i].trim();
                 if (!line) continue;
 
-                // التقاط الروابط حتى لو كان قدامها #
-                let cleanLine = line.replace(/="[^"]+"/g, ''); 
-                let urlMatch = cleanLine.match(/https?:\/\/[^\s|<"']+/);
-                
-                // البحث عن البيانات الدليلية
+                // التقاط كافة المؤشرات للبيانات
                 let isExtInf = line.toUpperCase().startsWith('#EXTINF');
-                let isKodiProp = line.toUpperCase().startsWith('#KODIPROP');
                 let titleMatch = line.match(/"?(?:title|name)"?\s*:\s*["']([^"']+)["']/i);
                 let combinedKeyMatch = line.match(/([a-fA-F0-9]{32})[:=]([a-fA-F0-9]{32})/);
                 let keyIdMatch = line.match(/"?(?:keyId|kid|k1)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
                 let keyValMatch = line.match(/"?(?:key|k2)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
-                
-                let hasMetadata = isExtInf || isKodiProp || titleMatch || combinedKeyMatch || keyIdMatch || keyValMatch;
 
-                // التريكة هنا: لو لقينا أي داتا لقناة جديدة (شفرة أو اسم) وكنا مجمعين روابط قبل كده.. نقفل القناة السابقة ونحفظها
-                if (hasMetadata && pendingUrls.length > 0) {
-                    saveCurrentBlock();
+                let hasNewKey = combinedKeyMatch || keyIdMatch;
+
+                // التريكة هنا: لو إحنا مجمعين روابط، ولقينا مؤشر إن فيه "قناة جديدة" (اسم جديد أو شفرة جديدة)، نقفل القديمة ونحفظها الأول.
+                // ده بيسمح للكود إنه يفضل يجمع الرابط والشفرة والاسم من نفس القناة حتى لو الترتيب مقلوب
+                if (pendingUrls.length > 0) {
+                    if (isExtInf) {
+                        saveCurrentBlock();
+                    } else if (titleMatch && pendingName) {
+                        saveCurrentBlock();
+                    } else if (hasNewKey && pendingK1) {
+                        saveCurrentBlock();
+                    }
                 }
 
-                // 1. استخراج الاسم
+                // 1. استخراج الاسم وتخزينه
                 if (isExtInf) {
                     let commaIdx = line.lastIndexOf(',');
                     if (commaIdx !== -1) {
@@ -228,7 +230,7 @@
                     pendingName = titleMatch[1];
                 }
 
-                // 2. استخراج الشفرات
+                // 2. استخراج الشفرات وتخزينها
                 if (combinedKeyMatch) {
                     pendingK1 = combinedKeyMatch[1];
                     pendingK2 = combinedKeyMatch[2];
@@ -237,7 +239,10 @@
                     if (keyValMatch) pendingK2 = keyValMatch[1];
                 }
 
-                // 3. استخراج الروابط وتخزينها في المصفوفة
+                // 3. استخراج الرابط وتخزينه
+                let cleanLine = line.replace(/="[^"]+"/g, ''); 
+                let urlMatch = cleanLine.match(/https?:\/\/[^\s|<"']+/);
+                
                 if (urlMatch) {
                     let url = urlMatch[0];
                     let urlLower = url.toLowerCase();
@@ -249,10 +254,10 @@
                 }
             }
             
-            // حفظ آخر فقرة في الملف
+            // حفظ القناة الأخيرة بعد انتهاء الملف
             saveCurrentBlock();
 
-            // فحص الطوارئ للروابط العشوائية لو لم يتم التقاط شيء
+            // فحص الطوارئ للروابط العشوائية المكتوبة تحت بعض بدون أسماء
             if (extractedChannels.length === 0) {
                 const globalUrls = rawText.match(/https?:\/\/[^\s|<"']+/g);
                 const globalKeys = rawText.match(/\b([a-fA-F0-9]{32})\b/g);
