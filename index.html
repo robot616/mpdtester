@@ -163,6 +163,7 @@
             let pendingUrls = [];
             let pendingK1 = "";
             let pendingK2 = "";
+            let pendingAllKeys = {}; // لتخزين جميع الشفرات إن وُجدت أكثر من واحدة
 
             // دالة حفظ القناة (مبتتفرمتش غير لما نحفظ فعلاً)
             function saveCurrentBlock() {
@@ -173,6 +174,7 @@
                         
                         let finalK1 = isM3u8 ? "" : pendingK1;
                         let finalK2 = isM3u8 ? "" : pendingK2;
+                        let finalAllKeys = isM3u8 ? {} : {...pendingAllKeys};
                         
                         let displayName = pendingName || `قناة مستخرجة ${extractedChannels.length + 1}`;
                         if (pendingUrls.length > 1) {
@@ -183,7 +185,8 @@
                             name: displayName,
                             url: url,
                             k1: finalK1,
-                            k2: finalK2
+                            k2: finalK2,
+                            allKeys: finalAllKeys
                         });
                     });
                     
@@ -192,6 +195,7 @@
                     pendingUrls = [];
                     pendingK1 = "";
                     pendingK2 = "";
+                    pendingAllKeys = {};
                 }
             }
 
@@ -202,20 +206,34 @@
                 // التقاط كافة المؤشرات للبيانات
                 let isExtInf = line.toUpperCase().startsWith('#EXTINF');
                 let titleMatch = line.match(/"?(?:title|name)"?\s*:\s*["']([^"']+)["']/i);
-                let combinedKeyMatch = line.match(/([a-fA-F0-9]{32})[:=]([a-fA-F0-9]{32})/);
+                
+                // تطوير الـ Regex عشان يسحب الشفرات أياً كان الأقواس أو علامات التنصيص اللي حواليها
+                let keyRegex = /([a-fA-F0-9]{32})["']?\s*[:=]\s*["']?([a-fA-F0-9]{32})/g;
+                let match;
+                let foundKeyInLine = false;
+                
+                // لو السطر فيه شفرة واحدة أو 5 شفرات (زي المثال بتاعك)، هنسحبهم كلهم
+                while ((match = keyRegex.exec(line)) !== null) {
+                    pendingAllKeys[match[1]] = match[2];
+                    foundKeyInLine = true;
+                }
+
                 let keyIdMatch = line.match(/"?(?:keyId|kid|k1)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
                 let keyValMatch = line.match(/"?(?:key|k2)"?\s*:\s*["']?([a-fA-F0-9]{32})["']?/i);
+                
+                if (keyIdMatch && keyValMatch && !foundKeyInLine) {
+                    pendingAllKeys[keyIdMatch[1]] = keyValMatch[1];
+                    foundKeyInLine = true;
+                }
 
-                let hasNewKey = combinedKeyMatch || keyIdMatch;
+                let hasNewName = isExtInf || titleMatch;
 
                 // التريكة هنا: لو إحنا مجمعين روابط، ولقينا مؤشر إن فيه "قناة جديدة" (اسم جديد أو شفرة جديدة)، نقفل القديمة ونحفظها الأول.
-                // ده بيسمح للكود إنه يفضل يجمع الرابط والشفرة والاسم من نفس القناة حتى لو الترتيب مقلوب
+                // ده بيسمح للكود إنه يفضل يجمع الرابط والشفرة والاسم من نفس القناة حتى لو الترتيب مقلوب في أي وضع.
                 if (pendingUrls.length > 0) {
-                    if (isExtInf) {
+                    if (hasNewName) {
                         saveCurrentBlock();
-                    } else if (titleMatch && pendingName) {
-                        saveCurrentBlock();
-                    } else if (hasNewKey && pendingK1) {
+                    } else if (foundKeyInLine && pendingK1) {
                         saveCurrentBlock();
                     }
                 }
@@ -230,13 +248,11 @@
                     pendingName = titleMatch[1];
                 }
 
-                // 2. استخراج الشفرات وتخزينها
-                if (combinedKeyMatch) {
-                    pendingK1 = combinedKeyMatch[1];
-                    pendingK2 = combinedKeyMatch[2];
-                } else {
-                    if (keyIdMatch) pendingK1 = keyIdMatch[1];
-                    if (keyValMatch) pendingK2 = keyValMatch[1];
+                // 2. تحديث الخانات الرئيسية (K1 و K2) بأول شفرة لقيناها في الفقرة لسهولة العرض في الـ UI
+                if (foundKeyInLine && !pendingK1) {
+                    let firstKid = Object.keys(pendingAllKeys)[0];
+                    pendingK1 = firstKid;
+                    pendingK2 = pendingAllKeys[firstKid];
                 }
 
                 // 3. استخراج الرابط وتخزينه
@@ -267,11 +283,18 @@
                         let urlLower = u.toLowerCase();
                         if (urlLower.includes('.mpd') || urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u')) {
                             let isM3u8Fallback = urlLower.includes('.m3u8') || urlLower.includes('.ts') || urlLower.includes('.m3u');
+                            let k1 = isM3u8Fallback ? "" : (globalKeys && globalKeys[keyIndex] ? globalKeys[keyIndex] : '');
+                            let k2 = isM3u8Fallback ? "" : (globalKeys && globalKeys[keyIndex + 1] ? globalKeys[keyIndex + 1] : '');
+                            
+                            let fallbackAllKeys = {};
+                            if (k1 && k2) fallbackAllKeys[k1] = k2;
+
                             extractedChannels.push({
                                 name: `قناة مستخرجة ${extractedChannels.length + 1}`,
                                 url: u,
-                                k1: isM3u8Fallback ? "" : (globalKeys && globalKeys[keyIndex] ? globalKeys[keyIndex] : ''),
-                                k2: isM3u8Fallback ? "" : (globalKeys && globalKeys[keyIndex + 1] ? globalKeys[keyIndex + 1] : '')
+                                k1: k1,
+                                k2: k2,
+                                allKeys: fallbackAllKeys
                             });
                             if(!isM3u8Fallback && globalKeys) keyIndex += 2;
                         }
@@ -348,6 +371,16 @@
                 currentShakaPlayer = null;
             }
 
+            // فحص ما إذا كانت القناة المحددة تحتوي على أكثر من شفرة (Multiple Keys)
+            let currentCh = extractedChannels.find(c => c.url === url && c.k1 === k1);
+            let finalShakaKeys = {};
+            
+            if (currentCh && Object.keys(currentCh.allKeys).length > 0) {
+                finalShakaKeys = currentCh.allKeys;
+            } else if (k1 && k2) {
+                finalShakaKeys[k1] = k2;
+            }
+
             if (playerType === 'jw') {
                 container.innerHTML = '<div id="jw-player"></div>';
                 
@@ -360,6 +393,7 @@
                     stretching: "uniform"
                 };
 
+                // JW Player هيشتغل على الشفرة الأولى المكتوبة في الخانة
                 if (k1 && k2) {
                     setupConfig.drm = {
                         clearkey: { keyId: k1, key: k2 }
@@ -401,12 +435,11 @@
                 currentShakaPlayer = new shaka.Player(videoElement);
                 const ui = new shaka.ui.Overlay(currentShakaPlayer, shakaContainer, videoElement);
 
-                if (k1 && k2) {
+                // تمرير كافة الشفرات المستخرجة إلى Shaka Player لضمان فك التشفير
+                if (Object.keys(finalShakaKeys).length > 0) {
                     currentShakaPlayer.configure({
                         drm: {
-                            clearKeys: {
-                                [k1]: k2
-                            }
+                            clearKeys: finalShakaKeys
                         }
                     });
                 }
