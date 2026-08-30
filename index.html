@@ -81,6 +81,27 @@
             max-height: 400px; overflow-y: auto; padding: 10px; box-sizing: border-box;
         }
         .playlist-box h3 { margin: 0 0 10px 0; font-size: 14px; color: #1dcf60; border-bottom: 1px solid #333; padding-bottom: 5px; text-align: center; }
+        
+        /* -------- استايل عداد القنوات -------- */
+        .counters-container {
+            display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap;
+        }
+        .counter-badge {
+            background: #222; border: 1px solid #333; padding: 4px 8px; 
+            border-radius: 6px; font-size: 11px; font-weight: bold; 
+            display: flex; align-items: center; gap: 6px;
+        }
+        .counter-badge span.count {
+            padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff;
+        }
+        .counter-mpd { border-color: #e74c3c; color: #e74c3c; }
+        .counter-mpd span.count { background: #e74c3c; }
+        .counter-m3u8 { border-color: #3498db; color: #3498db; }
+        .counter-m3u8 span.count { background: #3498db; }
+        .counter-ts { border-color: #f1c40f; color: #f1c40f; }
+        .counter-ts span.count { background: #f1c40f; color: #000; }
+        /* ------------------------------------- */
+
         .playlist-item {
             padding: 8px 10px; background: #222; margin-bottom: 6px; border-radius: 4px;
             cursor: pointer; font-size: 13px; transition: 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -140,6 +161,11 @@
         </div>
         <div class="playlist-box" id="playlistContainer">
             <h3>قائمة القنوات المستخرجة (0)</h3>
+            <div class="counters-container">
+                <div class="counter-badge counter-mpd">MPD <span class="count">0</span></div>
+                <div class="counter-badge counter-m3u8">M3U8 <span class="count">0</span></div>
+                <div class="counter-badge counter-ts">TS <span class="count">0</span></div>
+            </div>
             <div style="color: #777; text-align: center; font-size: 12px; margin-top: 20px;">لم يتم استخراج قنوات بعد</div>
         </div>
     </div>
@@ -158,14 +184,12 @@
             extractedChannels = [];
             const lines = rawText.split(/\r?\n/);
             
-            // الذاكرة المؤقتة للفقرة الحالية
             let pendingName = "";
             let pendingUrls = [];
             let pendingK1 = "";
             let pendingK2 = "";
-            let pendingAllKeys = {}; // لتخزين جميع الشفرات إن وُجدت أكثر من واحدة
+            let pendingAllKeys = {}; 
 
-            // دالة حفظ القناة (مبتتفرمتش غير لما نحفظ فعلاً)
             function saveCurrentBlock() {
                 if (pendingUrls.length > 0) {
                     pendingUrls.forEach((url, index) => {
@@ -190,7 +214,6 @@
                         });
                     });
                     
-                    // تصفير الذاكرة بعد ما نخلص حفظ القناة دي تماماً
                     pendingName = "";
                     pendingUrls = [];
                     pendingK1 = "";
@@ -203,16 +226,13 @@
                 let line = lines[i].trim();
                 if (!line) continue;
 
-                // التقاط كافة المؤشرات للبيانات
                 let isExtInf = line.toUpperCase().startsWith('#EXTINF');
                 let titleMatch = line.match(/"?(?:title|name)"?\s*:\s*["']([^"']+)["']/i);
                 
-                // تطوير الـ Regex عشان يسحب الشفرات أياً كان الأقواس أو علامات التنصيص اللي حواليها
                 let keyRegex = /([a-fA-F0-9]{32})["']?\s*[:=]\s*["']?([a-fA-F0-9]{32})/g;
                 let match;
                 let foundKeyInLine = false;
                 
-                // لو السطر فيه شفرة واحدة أو 5 شفرات (زي المثال بتاعك)، هنسحبهم كلهم
                 while ((match = keyRegex.exec(line)) !== null) {
                     pendingAllKeys[match[1]] = match[2];
                     foundKeyInLine = true;
@@ -228,8 +248,6 @@
 
                 let hasNewName = isExtInf || titleMatch;
 
-                // التريكة هنا: لو إحنا مجمعين روابط، ولقينا مؤشر إن فيه "قناة جديدة" (اسم جديد أو شفرة جديدة)، نقفل القديمة ونحفظها الأول.
-                // ده بيسمح للكود إنه يفضل يجمع الرابط والشفرة والاسم من نفس القناة حتى لو الترتيب مقلوب في أي وضع.
                 if (pendingUrls.length > 0) {
                     if (hasNewName) {
                         saveCurrentBlock();
@@ -238,7 +256,6 @@
                     }
                 }
 
-                // 1. استخراج الاسم وتخزينه
                 if (isExtInf) {
                     let commaIdx = line.lastIndexOf(',');
                     if (commaIdx !== -1) {
@@ -248,14 +265,12 @@
                     pendingName = titleMatch[1];
                 }
 
-                // 2. تحديث الخانات الرئيسية (K1 و K2) بأول شفرة لقيناها في الفقرة لسهولة العرض في الـ UI
                 if (foundKeyInLine && !pendingK1) {
                     let firstKid = Object.keys(pendingAllKeys)[0];
                     pendingK1 = firstKid;
                     pendingK2 = pendingAllKeys[firstKid];
                 }
 
-                // 3. استخراج الرابط وتخزينه
                 let cleanLine = line.replace(/="[^"]+"/g, ''); 
                 let urlMatch = cleanLine.match(/https?:\/\/[^\s|<"']+/);
                 
@@ -270,10 +285,8 @@
                 }
             }
             
-            // حفظ القناة الأخيرة بعد انتهاء الملف
             saveCurrentBlock();
 
-            // فحص الطوارئ للروابط العشوائية المكتوبة تحت بعض بدون أسماء
             if (extractedChannels.length === 0) {
                 const globalUrls = rawText.match(/https?:\/\/[^\s|<"']+/g);
                 const globalKeys = rawText.match(/\b([a-fA-F0-9]{32})\b/g);
@@ -307,12 +320,34 @@
 
         function renderPlaylistUI() {
             const container = document.getElementById('playlistContainer');
+            
+            let mpdCount = 0, m3u8Count = 0, tsCount = 0;
+            
+            extractedChannels.forEach(ch => {
+                let urlLower = ch.url.toLowerCase();
+                if (urlLower.includes('.mpd')) mpdCount++;
+                else if (urlLower.includes('.m3u8') || urlLower.includes('.m3u')) m3u8Count++;
+                else if (urlLower.includes('.ts')) tsCount++;
+            });
+
             if (extractedChannels.length === 0) {
-                container.innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3><div style="color: #ff4d4d; text-align: center; font-size: 12px; margin-top: 20px;">لم يتم العثور على روابط بث صالحة!</div>`;
+                container.innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3>
+                <div class="counters-container">
+                    <div class="counter-badge counter-mpd">MPD <span class="count">0</span></div>
+                    <div class="counter-badge counter-m3u8">M3U8 <span class="count">0</span></div>
+                    <div class="counter-badge counter-ts">TS <span class="count">0</span></div>
+                </div>
+                <div style="color: #ff4d4d; text-align: center; font-size: 12px; margin-top: 20px;">لم يتم العثور على روابط بث صالحة!</div>`;
                 return;
             }
 
-            let html = `<h3>قائمة القنوات المستخرجة (${extractedChannels.length})</h3>`;
+            let html = `<h3>قائمة القنوات المستخرجة (${extractedChannels.length})</h3>
+            <div class="counters-container">
+                <div class="counter-badge counter-mpd">MPD <span class="count">${mpdCount}</span></div>
+                <div class="counter-badge counter-m3u8">M3U8 <span class="count">${m3u8Count}</span></div>
+                <div class="counter-badge counter-ts">TS <span class="count">${tsCount}</span></div>
+            </div>`;
+            
             extractedChannels.forEach((ch, idx) => {
                 html += `<div class="playlist-item" onclick="selectChannel(${idx})" id="ch-item-${idx}" title="${ch.name}">${idx + 1}. ${ch.name}</div>`;
             });
@@ -343,7 +378,14 @@
             document.getElementById('keyId').value = '';
             document.getElementById('keyVal').value = '';
             extractedChannels = [];
-            document.getElementById('playlistContainer').innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3><div style="color: #777; text-align: center; font-size: 12px; margin-top: 20px;">تم التطهير بنجاح</div>`;
+            
+            document.getElementById('playlistContainer').innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3>
+            <div class="counters-container">
+                <div class="counter-badge counter-mpd">MPD <span class="count">0</span></div>
+                <div class="counter-badge counter-m3u8">M3U8 <span class="count">0</span></div>
+                <div class="counter-badge counter-ts">TS <span class="count">0</span></div>
+            </div>
+            <div style="color: #777; text-align: center; font-size: 12px; margin-top: 20px;">تم التطهير بنجاح</div>`;
             
             const container = document.getElementById('video-container');
             container.innerHTML = '';
@@ -371,7 +413,6 @@
                 currentShakaPlayer = null;
             }
 
-            // فحص ما إذا كانت القناة المحددة تحتوي على أكثر من شفرة (Multiple Keys)
             let currentCh = extractedChannels.find(c => c.url === url && c.k1 === k1);
             let finalShakaKeys = {};
             
@@ -393,7 +434,6 @@
                     stretching: "uniform"
                 };
 
-                // JW Player هيشتغل على الشفرة الأولى المكتوبة في الخانة
                 if (k1 && k2) {
                     setupConfig.drm = {
                         clearkey: { keyId: k1, key: k2 }
@@ -435,7 +475,6 @@
                 currentShakaPlayer = new shaka.Player(videoElement);
                 const ui = new shaka.ui.Overlay(currentShakaPlayer, shakaContainer, videoElement);
 
-                // تمرير كافة الشفرات المستخرجة إلى Shaka Player لضمان فك التشفير
                 if (Object.keys(finalShakaKeys).length > 0) {
                     currentShakaPlayer.configure({
                         drm: {
