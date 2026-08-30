@@ -82,7 +82,7 @@
         }
         .playlist-box h3 { margin: 0 0 10px 0; font-size: 14px; color: #1dcf60; border-bottom: 1px solid #333; padding-bottom: 5px; text-align: center; }
         
-        /* -------- استايل عداد القنوات -------- */
+        /* -------- استايل عداد القنوات والفلاتر -------- */
         .counters-container {
             display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap;
         }
@@ -90,14 +90,23 @@
             background: #222; border: 1px solid #333; padding: 4px 8px; 
             border-radius: 6px; font-size: 11px; font-weight: bold; 
             display: flex; align-items: center; gap: 6px;
+            cursor: pointer; opacity: 0.5; transition: all 0.2s;
         }
+        .counter-badge:hover { opacity: 0.8; }
+        .counter-badge.active { opacity: 1; transform: scale(1.05); border-width: 2px; }
+        
         .counter-badge span.count {
             padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #fff;
         }
+        .counter-all { border-color: #1dcf60; color: #1dcf60; }
+        .counter-all span.count { background: #1dcf60; color: #000; }
+
         .counter-mpd { border-color: #e74c3c; color: #e74c3c; }
         .counter-mpd span.count { background: #e74c3c; }
+
         .counter-m3u8 { border-color: #3498db; color: #3498db; }
         .counter-m3u8 span.count { background: #3498db; }
+
         .counter-ts { border-color: #f1c40f; color: #f1c40f; }
         .counter-ts span.count { background: #f1c40f; color: #000; }
         /* ------------------------------------- */
@@ -162,9 +171,10 @@
         <div class="playlist-box" id="playlistContainer">
             <h3>قائمة القنوات المستخرجة (0)</h3>
             <div class="counters-container">
-                <div class="counter-badge counter-mpd">MPD <span class="count">0</span></div>
-                <div class="counter-badge counter-m3u8">M3U8 <span class="count">0</span></div>
-                <div class="counter-badge counter-ts">TS <span class="count">0</span></div>
+                <div class="counter-badge counter-all active" onclick="filterByFormat('all')">الكل <span class="count">0</span></div>
+                <div class="counter-badge counter-mpd" onclick="filterByFormat('mpd')">MPD <span class="count">0</span></div>
+                <div class="counter-badge counter-m3u8" onclick="filterByFormat('m3u8')">M3U8 <span class="count">0</span></div>
+                <div class="counter-badge counter-ts" onclick="filterByFormat('ts')">TS <span class="count">0</span></div>
             </div>
             <div style="color: #777; text-align: center; font-size: 12px; margin-top: 20px;">لم يتم استخراج قنوات بعد</div>
         </div>
@@ -173,6 +183,13 @@
     <script>
         let currentShakaPlayer = null;
         let extractedChannels = [];
+        let currentFilter = 'all'; // الفلتر الافتراضي
+
+        // دالة الفلترة الجديدة
+        function filterByFormat(format) {
+            currentFilter = format;
+            renderPlaylistUI();
+        }
 
         function extractPlaylist() {
             const rawText = document.getElementById('autoInput').value;
@@ -182,6 +199,7 @@
             }
 
             extractedChannels = [];
+            currentFilter = 'all'; // إعادة الفلتر للكل عند استخراج جديد
             const lines = rawText.split(/\r?\n/);
             
             let pendingName = "";
@@ -316,6 +334,10 @@
             }
 
             renderPlaylistUI();
+            
+            if (extractedChannels.length > 0) {
+                selectChannel(0);
+            }
         }
 
         function renderPlaylistUI() {
@@ -330,32 +352,47 @@
                 else if (urlLower.includes('.ts')) tsCount++;
             });
 
+            // فلترة القنوات بناءً على اختيار المستخدم
+            let displayedChannels = extractedChannels.filter(ch => {
+                if (currentFilter === 'all') return true;
+                let urlLower = ch.url.toLowerCase();
+                if (currentFilter === 'mpd') return urlLower.includes('.mpd');
+                if (currentFilter === 'm3u8') return (urlLower.includes('.m3u8') || urlLower.includes('.m3u'));
+                if (currentFilter === 'ts') return urlLower.includes('.ts');
+                return true;
+            });
+
             if (extractedChannels.length === 0) {
                 container.innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3>
                 <div class="counters-container">
-                    <div class="counter-badge counter-mpd">MPD <span class="count">0</span></div>
-                    <div class="counter-badge counter-m3u8">M3U8 <span class="count">0</span></div>
-                    <div class="counter-badge counter-ts">TS <span class="count">0</span></div>
+                    <div class="counter-badge counter-all active" onclick="filterByFormat('all')">الكل <span class="count">0</span></div>
+                    <div class="counter-badge counter-mpd" onclick="filterByFormat('mpd')">MPD <span class="count">0</span></div>
+                    <div class="counter-badge counter-m3u8" onclick="filterByFormat('m3u8')">M3U8 <span class="count">0</span></div>
+                    <div class="counter-badge counter-ts" onclick="filterByFormat('ts')">TS <span class="count">0</span></div>
                 </div>
                 <div style="color: #ff4d4d; text-align: center; font-size: 12px; margin-top: 20px;">لم يتم العثور على روابط بث صالحة!</div>`;
                 return;
             }
 
-            let html = `<h3>قائمة القنوات المستخرجة (${extractedChannels.length})</h3>
+            let html = `<h3>قائمة القنوات المستخرجة (${displayedChannels.length})</h3>
             <div class="counters-container">
-                <div class="counter-badge counter-mpd">MPD <span class="count">${mpdCount}</span></div>
-                <div class="counter-badge counter-m3u8">M3U8 <span class="count">${m3u8Count}</span></div>
-                <div class="counter-badge counter-ts">TS <span class="count">${tsCount}</span></div>
+                <div class="counter-badge counter-all ${currentFilter === 'all' ? 'active' : ''}" onclick="filterByFormat('all')">الكل <span class="count">${extractedChannels.length}</span></div>
+                <div class="counter-badge counter-mpd ${currentFilter === 'mpd' ? 'active' : ''}" onclick="filterByFormat('mpd')">MPD <span class="count">${mpdCount}</span></div>
+                <div class="counter-badge counter-m3u8 ${currentFilter === 'm3u8' ? 'active' : ''}" onclick="filterByFormat('m3u8')">M3U8 <span class="count">${m3u8Count}</span></div>
+                <div class="counter-badge counter-ts ${currentFilter === 'ts' ? 'active' : ''}" onclick="filterByFormat('ts')">TS <span class="count">${tsCount}</span></div>
             </div>`;
             
-            extractedChannels.forEach((ch, idx) => {
-                html += `<div class="playlist-item" onclick="selectChannel(${idx})" id="ch-item-${idx}" title="${ch.name}">${idx + 1}. ${ch.name}</div>`;
-            });
-            container.innerHTML = html;
-
-            if (extractedChannels.length > 0) {
-                selectChannel(0);
+            if (displayedChannels.length === 0) {
+                html += `<div style="color: #777; text-align: center; font-size: 12px; margin-top: 20px;">لا توجد قنوات بهذه الصيغة</div>`;
+            } else {
+                displayedChannels.forEach((ch) => {
+                    // نحصل على الاندكس الأصلي للقناة عشان التشغيل يكون سليم
+                    let originalIndex = extractedChannels.indexOf(ch);
+                    html += `<div class="playlist-item" onclick="selectChannel(${originalIndex})" id="ch-item-${originalIndex}" title="${ch.name}">${originalIndex + 1}. ${ch.name}</div>`;
+                });
             }
+
+            container.innerHTML = html;
         }
 
         function selectChannel(idx) {
@@ -364,8 +401,8 @@
             document.getElementById('keyId').value = ch.k1;
             document.getElementById('keyVal').value = ch.k2;
 
-            document.querySelectorAll('.playlist-item').forEach((el, i) => {
-                if(i === idx) el.classList.add('active');
+            document.querySelectorAll('.playlist-item').forEach((el) => {
+                if(el.id === `ch-item-${idx}`) el.classList.add('active');
                 else el.classList.remove('active');
             });
 
@@ -378,12 +415,14 @@
             document.getElementById('keyId').value = '';
             document.getElementById('keyVal').value = '';
             extractedChannels = [];
+            currentFilter = 'all';
             
             document.getElementById('playlistContainer').innerHTML = `<h3>قائمة القنوات المستخرجة (0)</h3>
             <div class="counters-container">
-                <div class="counter-badge counter-mpd">MPD <span class="count">0</span></div>
-                <div class="counter-badge counter-m3u8">M3U8 <span class="count">0</span></div>
-                <div class="counter-badge counter-ts">TS <span class="count">0</span></div>
+                <div class="counter-badge counter-all active" onclick="filterByFormat('all')">الكل <span class="count">0</span></div>
+                <div class="counter-badge counter-mpd" onclick="filterByFormat('mpd')">MPD <span class="count">0</span></div>
+                <div class="counter-badge counter-m3u8" onclick="filterByFormat('m3u8')">M3U8 <span class="count">0</span></div>
+                <div class="counter-badge counter-ts" onclick="filterByFormat('ts')">TS <span class="count">0</span></div>
             </div>
             <div style="color: #777; text-align: center; font-size: 12px; margin-top: 20px;">تم التطهير بنجاح</div>`;
             
