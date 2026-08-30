@@ -52,9 +52,8 @@
         
         /* -------- شريط الأزرار والعدادات -------- */
         .action-row {
-            display: flex; gap: 15px; width: 100%; max-width: 1000px;
+            display: flex; gap: 10px; width: 100%; max-width: 1000px;
             align-items: center; flex-wrap: wrap; justify-content: space-between;
-            background: #181818; padding: 12px 15px; border-radius: 8px; border: 1px solid #333; box-sizing: border-box;
         }
         
         .buttons-group {
@@ -72,7 +71,7 @@
         button.clear-btn:hover { background: #cc0000; }
 
         .counters-container {
-            display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
+            display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 0;
         }
         .counter-badge {
             background: #222; border: 1px solid #333; padding: 6px 10px; 
@@ -130,7 +129,7 @@
             background-size: 55%; background-position: center; background-repeat: no-repeat;
         }
         .jw-flag-fullscreen .jw-icon-fullscreen {
-            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzdjNhMiAyIDAgMCAxLTIgMkgzbTE4IDBoLTNhMiAyIDAgMCAxLTUtMlYzbTAgMTh2LTNhMiAyIDAgMCAxIDItMmgzTTMgMTZoM2EyIDIgMCAwIDEgMiAydjMiLz48L3N2Zz4=');
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNOCAzdjNhMiAyIDAgMCAxLTIgMkgzbTE4IDBoLTNhMiAyIDAgMCAxLTItMlYzbTAgMThoM2EyIDIgMCAwIDEgMiAydjMiLz48L3N2Zz4=');
         }
         .jw-icon-playlist, .jw-icon-next, .jw-related-btn { display: none !important; }
 
@@ -138,10 +137,9 @@
             .main-content { flex-direction: column; }
             .player-wrapper, .playlist-box { width: 100%; flex: none; }
             .manual-inputs { flex-direction: column; }
-            .action-row { flex-direction: column; }
             input[type="text"], select, button { width: 100%; }
             .buttons-group { width: 100%; flex-direction: row; }
-            .counters-container { width: 100%; justify-content: center; }
+            .counters-container { width: 100%; justify-content: center; margin-top: 10px; }
         }
     </style>
 </head>
@@ -199,7 +197,6 @@
         function filterByFormat(format) {
             currentFilter = format;
             
-            // تحديث تأثير الأزرار (العدادات)
             document.querySelectorAll('.counter-badge').forEach(b => b.classList.remove('active'));
             document.getElementById('badge-' + format).classList.add('active');
             
@@ -347,7 +344,6 @@
                 }
             }
 
-            // تفعيل فلتر "الكل" تلقائياً مع كل استخراج جديد
             filterByFormat('all');
             
             if (extractedChannels.length > 0) {
@@ -367,13 +363,11 @@
                 else if (urlLower.includes('.ts')) tsCount++;
             });
 
-            // تحديث الأرقام بداخل الأزرار العلوية
             document.getElementById('count-all').innerText = extractedChannels.length;
             document.getElementById('count-mpd').innerText = mpdCount;
             document.getElementById('count-m3u8').innerText = m3u8Count;
             document.getElementById('count-ts').innerText = tsCount;
 
-            // فلترة القنوات للطباعة
             let displayedChannels = extractedChannels.filter(ch => {
                 if (currentFilter === 'all') return true;
                 let urlLower = ch.url.toLowerCase();
